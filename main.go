@@ -12,51 +12,45 @@ import (
 
 var (
 	exitCode = 0
-	writer   = bufio.NewWriter(os.Stdout)
 )
 
 func main() {
 	log.SetPrefix(os.Args[0] + ": ")
 	log.SetFlags(0)
 	flag.Parse()
+	defer func() { os.Exit(exitCode) }()
+
+	w := bufio.NewWriter(os.Stdout)
+	defer w.Flush()
 
 	if flag.NArg() == 0 {
-		vis(os.Stdin)
+		vis(w, os.Stdin)
 	} else {
 		for _, fname := range flag.Args() {
 			f, err := os.Open(fname)
 			if err != nil {
+				log.Print(err)
 				exitCode = 1
-				log.Println(err)
 				continue
 			}
-			vis(f)
+			vis(w, f)
 			f.Close()
 		}
 	}
-	writer.Flush()
-	os.Exit(exitCode)
 }
 
-func vis(r io.Reader) {
+func vis(w io.Writer, r io.Reader) {
 	b := bufio.NewReader(r)
 	for {
 		r, _, err := b.ReadRune()
-		if err == io.EOF {
-			return
-		}
 		if err != nil {
-			exitCode = 1
-			log.Println(err)
 			return
 		}
+
 		if unicode.IsGraphic(r) || unicode.IsSpace(r) {
-			_, err = writer.WriteRune(r)
+			fmt.Fprintf(w, "%c", r)
 		} else {
-			_, err = fmt.Fprintf(writer, "\\u%04x", r)
-		}
-		if err != nil {
-			return
+			fmt.Fprintf(w, "\\u%04x", r)
 		}
 	}
 }
